@@ -1,0 +1,46 @@
+<launch>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_internal_frame_broadcaster_5" 
+        args="0.0 0.0 0.0   0.0 0.0 0.0 1.0 camera_link camera_color_frame" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_internal_frame_broadcaster_6"
+        args="0.0 0.0 0.0   -0.5 0.5 -0.5 0.5 camera_color_frame camera_color_optical_frame" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_internal_frame_broadcaster_7"
+        args="0.0 0.0 0.0   0.0 0.0 0.0 1.0 camera_link camera_depth_frame" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_internal_frame_broadcaster_8"
+        args="0.0 0.0 0.0   -0.5 0.5 -0.5 0.5 camera_depth_frame camera_depth_optical_frame" />
+
+    <!-- <node name="realsense_processing" pkg="single_camera_demo" type="realsense_processing.py"> -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_aruco_broadcaster"
+        args="0.2 0.0 0.04   0.0 0.0 0.7071 0.7071  base_link aruco_marker_frame" />
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_camera_tf" 
+     args="0.024 -0.320 0.642 -0.413 0.422 0.570 0.571 aruco_marker_frame camera_link"/>
+     
+    <!-- <node name="marker_to_robot_node" pkg="single_camera_demo" type="marker_to_robot.py" output="screen" /> -->
+
+    <include file="$(find single_camera_demo)/launch/setup_robot.launch"/>
+    <include file="$(find single_camera_demo)/launch/setup_435_camera.launch"/>
+    <!-- <include file="$(find single_camera_demo)/launch/aruco_ros_single.launch"/> -->
+
+
+    <!-- <node name="left_camera_broadcast" pkg="box_detection" type="publish_camera.py" output="screen" required="true">
+        <param name="input_file" value="/home/riot/kinova_gen3_lite/src/heightmap/real/camera_pose_left.txt"/>
+        <param name="parent_frame" value="base_link"/>
+        <param name="child_frame" value="camera_link"/>
+    </node>
+
+    
+    
+    <!<include file="$(find single_camera_demo)/launch/publish_camera.launch"/> -->
+    <include file="$(find single_camera_demo)/launch/single_camera_processing.launch"/>
+    <!-- <include file="$(find ggcnn)/launch/ggcnn_service.launch"/> -->
+    
+
+    <node name="detect_grasps" pkg="gpd_ros" type="detect_grasps" output="screen">
+        <param name="cloud_type" value="0" />
+        <param name="cloud_topic" value="/cloud_to_get_grasps_on" />
+        <param name="config_file" value="/home/riot/kinova_gen3_lite/src/single_camera_demo/config/ros_eigen_params_left.cfg" />
+        <param name="rviz_topic" value="plot_grasps" />
+    </node>
+
+
+</launch>
