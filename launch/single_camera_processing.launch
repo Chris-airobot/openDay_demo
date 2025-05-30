@@ -24,7 +24,7 @@
     <param name="fixed_frame" type="string" value="base_link" />
   </node>
 
-  <node name="realsense_processing" pkg="single_camera_demo" type="realsense_processing.py">
+  <node name="realsense_processing" pkg="openDay_demo" type="realsense_processing.py">
     <param name="pcl_fwd_status" type="boolean" value="false" />
     <param name="fwd_pcd_with_timer" type="boolean" value="false" />
   </node>

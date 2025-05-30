@@ -27,7 +27,7 @@ class FirstDemo:
         self.bridge = CvBridge()
         
         # Call the point cloud data service
-        self.left_scan = rospy.ServiceProxy("/realsense_processing/stitch_pcd_service", AssembleScans2)
+        self.scan = rospy.ServiceProxy("/realsense_processing/stitch_pcd_service", AssembleScans2)
         
         # # indicates whether there are objects on the top of the table
         # self.left_object = None
@@ -39,14 +39,14 @@ class FirstDemo:
         self.grasp_process_timeout = rospy.Duration(5)
         
         # Publish the point cloud data into topic that GPD package which receives the input
-        self.left_grasps_pub = rospy.Publisher("/cloud_to_get_grasps_on", PointCloud2, queue_size=1)
+        self.grasps_pub = rospy.Publisher("/cloud_to_get_grasps_on", PointCloud2, queue_size=1)
 
 
-        self.grasp_left_list: Union[List[GraspConfig], None] = None
+        self.grasp_list: Union[List[GraspConfig], None] = None
 
         
         # Subscribe to the gpd topic and get the grasp gesture data, save it into the grasp_list through call_back function
-        self.gpd_left_sub = rospy.Subscriber("/detect_grasps/clustered_grasps", GraspConfigList, self.save_left_grasps)
+        self.gpd_sub = rospy.Subscriber("/detect_grasps/clustered_grasps", GraspConfigList, self.save_grasps)
         
 
         
@@ -73,7 +73,7 @@ class FirstDemo:
         rospy.sleep(2)
         end_time = rospy.Time.now()
 
-        stitch_response = self.left_scan(AssembleScans2Request(begin=start_time, end=end_time))
+        stitch_response = self.scan(AssembleScans2Request(begin=start_time, end=end_time))
 
             
         stitched_cloud: PointCloud2 = stitch_response.cloud
@@ -82,8 +82,8 @@ class FirstDemo:
     
     
 
-    def save_left_grasps(self, data: GraspConfigList):
-        self.grasp_left_list = data.grasps
+    def save_grasps(self, data: GraspConfigList):
+        self.grasp_list = data.grasps
     
         
         
@@ -95,20 +95,20 @@ class FirstDemo:
         
     
     
-    def find_left_grasps(self, start_time):
-        while (self.grasp_left_list is None and 
+    def find_grasps(self, start_time):
+        while (self.grasp_list is None and 
                rospy.Time.now() - start_time < self.grasp_process_timeout):
             rospy.loginfo("waiting for left grasps")
             rospy.sleep(0.5)
 
-            if self.grasp_left_list is None:
+            if self.grasp_list is None:
                 rospy.logwarn("No grasps detected on pcl, restarting!!!")
                 continue
         
         # Sort all grasps based on the gpd_ros's msg: GraspConfigList.grasps.score.data            
-        self.grasp_left_list.sort(key=lambda x: x.score.data, reverse=True)
+        self.grasp_list.sort(key=lambda x: x.score.data, reverse=True)
         grasp_performed = False
-        for grasp in self.grasp_left_list:
+        for grasp in self.grasp_list:
             rot = np.zeros((3, 3))
             # grasp approach direction
             rot[:, 2] = self.vector3ToNumpy(grasp.approach)
@@ -123,7 +123,7 @@ class FirstDemo:
             quat = pyquaternion.Quaternion(matrix=rot)
             pos: Point = grasp.position
             
-            pos.z -= 0.05
+            pos.z -= 0.02
             
             orientation = [180, 0, -90]
             
@@ -149,17 +149,16 @@ class FirstDemo:
             #     continue
             # elif res == 'b':
             #     return None, True
+            # input("Press Enter to go to pregrasp pose")
             grasp_move_done = self.robot.move_pose([pos.x, pos.y, 0.2], orientation)
             
-            # res2 = input("Hit Enter to go down")
-            # if res2 == 'b':
-            #     return None, True
+   
                 
             
-            
+            # input("Press Enter to go to grasp pose")
             grasp_move_done = self.robot.move_pose([pos.x, pos.y, pos.z], orientation)
             
-            left = True if pos.y < 0 else False
+            left = True if pos.y < 0.02 else False
             
             if grasp_move_done:
                 grasp_performed = True
@@ -194,12 +193,12 @@ class FirstDemo:
             self.grasp_list = None
             # Get the point cloud data of the object
             pcd = self.scan_object()
-            self.left_grasps_pub.publish(pcd)
+            self.grasps_pub.publish(pcd)
 
             
             # Just wait for the grasping, while the callback function is running at the back
 
-            executed, left = self.find_left_grasps(start_time)
+            executed, left = self.find_grasps(start_time)
 
             
             
@@ -216,7 +215,6 @@ class FirstDemo:
             self.robot.move_gripper(0)
             
             rospy.sleep(1)
-            print("you are here")
             continue
 
 

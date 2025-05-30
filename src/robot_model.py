@@ -511,8 +511,8 @@ class GEN3_LITE(ERobot):
         upper_x_limit = 0.46 
         lower_x_limit = 0.2 
         
-        upper_y_limit = 0.4 if left else -0.2
-        lower_y_limit = 0.2 if left else -0.4
+        upper_y_limit = 0.3
+        lower_y_limit = -0.2
         
         work_space_x = random.uniform(lower_x_limit, upper_x_limit)
         work_space_y = random.uniform(lower_y_limit, upper_y_limit)
@@ -520,6 +520,7 @@ class GEN3_LITE(ERobot):
         orientation = [180, 0, -90]
         
         print(f'The planned pos is:{work_space_x, work_space_y}')
+        # input("Press Enter to go down")
         self.move_pose([work_space_x, work_space_y, 0.1], orientation)
 
 

@@ -1,8 +1,8 @@
 
 # marker_diff
-x = 0.2
+x = 0.21
 y = 0
-z = 0.04
+z = -0.04
 
 import rospy
 import cv2
@@ -14,6 +14,8 @@ from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import TransformStamped
 import tf2_ros
 import tf.transformations
+SAVE_PATH = "/home/riot/kinova_gen3_lite/src/openDay_demo/config/camera_pose.txt"
+
 
 # Aruco dictionary and parameters
 ARUCO_DICT = aruco.getPredefinedDictionary(cv2.aruco.DICT_ARUCO_ORIGINAL)
@@ -21,16 +23,18 @@ ARUCO_PARAMS = aruco.DetectorParameters()
 
 
 rospy.init_node('aruco_marker_detector')
+# Initialize OpenCV bridge
+bridge = CvBridge()
 
 # Set up a tf broadcaster
 tf_broadcaster = tf2_ros.TransformBroadcaster()
+static_broadcaster = tf2_ros.StaticTransformBroadcaster()   # <-- added
+
 
 message = rospy.wait_for_message("/camera/color/camera_info", CameraInfo)
 camera_matrix = np.array(message.K).reshape((3, 3))
 dist_coeffs = np.array(message.D)
 
-# Initialize OpenCV bridge
-bridge = CvBridge()
 
 
 
@@ -47,8 +51,7 @@ def process_frame(msg):
         rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(corners, 0.05, camera_matrix, dist_coeffs)
 
         for i in range(len(ids)):
-            aruco.drawDetectedMarkers(frame, corners)
-            
+            aruco.drawDetectedMarkers(frame, corners)     
             cv2.drawFrameAxes(frame, camera_matrix, dist_coeffs, rvecs[i], tvecs[i], 0.05)
 
             # Broadcast the transformation
@@ -62,15 +65,39 @@ def process_frame(msg):
             rot_matrix = cv2.Rodrigues(rvecs[i])[0]
             quat = tf.transformations.quaternion_from_matrix(np.vstack((np.hstack((rot_matrix, np.zeros((3, 1)))), [0, 0, 0, 1])))
 
-            trans.transform.translation.x = tvecs[i][0][0]
-            trans.transform.translation.y = tvecs[i][0][1]
-            trans.transform.translation.z = tvecs[i][0][2]
+            tx, ty, tz = tvecs[i][0]
+            trans.transform.translation.x = tx
+            trans.transform.translation.y = ty
+            trans.transform.translation.z = tz
             trans.transform.rotation.x = quat[0]
             trans.transform.rotation.y = quat[1]
             trans.transform.rotation.z = quat[2]
             trans.transform.rotation.w = quat[3]
             print(trans)
             tf_broadcaster.sendTransform(trans)
+            
+            # **ADDED**: publish base_link → aruco_marker_frame
+            base_tf = TransformStamped()
+            base_tf.header.stamp    = rospy.Time.now()
+            base_tf.header.frame_id = "base_link"
+            base_tf.child_frame_id  = "aruco_marker_3"
+            base_tf.transform.translation.x = x
+            base_tf.transform.translation.y = y
+            base_tf.transform.translation.z = z
+            base_tf.transform.rotation.x = 0.0
+            base_tf.transform.rotation.y = 0.0
+            base_tf.transform.rotation.z = 0.0
+            base_tf.transform.rotation.w = 1.0
+            static_broadcaster.sendTransform(base_tf)
+            
+            # ----- **ADDED: save the same 4×4 matrix to file** -----
+            T = np.eye(4)
+            T[:3, :3] = rot_matrix
+            T[0, 3] = tx
+            T[1, 3] = ty
+            T[2, 3] = tz
+            np.savetxt(SAVE_PATH, T, fmt="%.10f")
+            rospy.loginfo(f"Saved camera_link to aruco_marker_3 transform to {SAVE_PATH}")
 
     cv2.imshow('Aruco Marker Detection', frame)
     cv2.waitKey(1)
